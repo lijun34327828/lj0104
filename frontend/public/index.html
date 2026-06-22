@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>园区安防设备巡检管理系统</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-container">
+    <aside class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">📹</div>
+        <div class="logo-text">
+          <h1>安防巡检系统</h1>
+          <p>Security Patrol System</p>
+        </div>
+      </div>
+      <nav class="nav-menu">
+        <div class="nav-item active" data-page="dashboard">
+          <span class="nav-icon">📊</span>
+          <span class="nav-label">监控概览</span>
+        </div>
+        <div class="nav-item" data-page="workorders">
+          <span class="nav-icon">📋</span>
+          <span class="nav-label">工单管理</span>
+          <span class="badge" id="pending-badge">0</span>
+        </div>
+        <div class="nav-item" data-page="devices">
+          <span class="nav-icon">📷</span>
+          <span class="nav-label">设备管理</span>
+        </div>
+        <div class="nav-item" data-page="patrol">
+          <span class="nav-icon">📝</span>
+          <span class="nav-label">巡检记录</span>
+        </div>
+        <div class="nav-item" data-page="simulate">
+          <span class="nav-icon">🧪</span>
+          <span class="nav-label">模拟测试</span>
+        </div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="status-indicator">
+          <span class="status-dot online"></span>
+          <span>系统运行中</span>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="top-header">
+        <div class="header-left">
+          <h2 id="page-title">监控概览</h2>
+        </div>
+        <div class="header-right">
+          <div class="time-display" id="current-time"></div>
+          <div class="user-info">
+            <span class="user-avatar">👤</span>
+            <span class="user-name">安保运维员</span>
+          </div>
+        </div>
+      </header>
+
+      <div class="page-content">
+        <div id="page-dashboard" class="page active">
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-icon total">📷</div>
+              <div class="stat-info">
+                <div class="stat-value" id="stat-total-devices">0</div>
+                <div class="stat-label">设备总数</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon online">✅</div>
+              <div class="stat-info">
+                <div class="stat-value" id="stat-online-devices">0</div>
+                <div class="stat-label">在线设备</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon offline">❌</div>
+              <div class="stat-info">
+                <div class="stat-value" id="stat-offline-devices">0</div>
+                <div class="stat-label">离线设备</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon warning">⚠️</div>
+              <div class="stat-info">
+                <div class="stat-value" id="stat-pending-orders">0</div>
+                <div class="stat-label">待处理工单</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="dashboard-grid">
+            <div class="panel">
+              <div class="panel-header">
+                <h3>最新告警工单</h3>
+                <button class="btn-link" onclick="navigateTo('workorders')">查看全部 →</button>
+              </div>
+              <div class="panel-body">
+                <div id="recent-orders" class="order-list">
+                </div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-header">
+                <h3>区域设备状态</h3>
+              </div>
+              <div class="panel-body">
+                <div id="zone-stats" class="zone-list">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <h3>升级工单</h3>
+              <span class="subtitle">超时未处理自动升级主管</span>
+            </div>
+            <div class="panel-body">
+              <div id="escalated-orders" class="order-list">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="page-workorders" class="page">
+          <div class="filter-bar">
+            <div class="filter-group">
+              <label>工单状态：</label>
+              <select id="filter-status" onchange="loadWorkOrders()">
+                <option value="">全部状态</option>
+                <option value="pending">待处理</option>
+                <option value="processing">维修中</option>
+                <option value="closed">已闭环</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label>所属区域：</label>
+              <select id="filter-zone" onchange="loadWorkOrders()">
+                <option value="">全部区域</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label>是否升级：</label>
+              <select id="filter-escalated" onchange="loadWorkOrders()">
+                <option value="">全部</option>
+                <option value="true">已升级</option>
+                <option value="false">未升级</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <button class="btn btn-primary" onclick="refreshWorkOrders()">
+                🔄 刷新
+              </button>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <h3>工单列表</h3>
+              <span class="subtitle" id="workorder-count">共 0 条</span>
+            </div>
+            <div class="panel-body">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>工单编号</th>
+                    <th>设备信息</th>
+                    <th>告警类型</th>
+                    <th>所属区域</th>
+                    <th>负责人</th>
+                    <th>状态</th>
+                    <th>优先级</th>
+                    <th>创建时间</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="workorder-table-body">
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div id="page-devices" class="page">
+          <div class="filter-bar">
+            <div class="filter-group">
+              <label>设备状态：</label>
+              <select id="device-status-filter" onchange="loadDevices()">
+                <option value="">全部状态</option>
+                <option value="online">在线</option>
+                <option value="offline">离线</option>
+                <option value="occluded">画面遮挡</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label>所属区域：</label>
+              <select id="device-zone-filter" onchange="loadDevices()">
+                <option value="">全部区域</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <button class="btn btn-primary" onclick="refreshDevices()">
+                🔄 刷新
+              </button>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <h3>设备列表</h3>
+              <span class="subtitle" id="device-count">共 0 台设备</span>
+            </div>
+            <div class="panel-body">
+              <div id="device-grid" class="device-grid">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="page-patrol" class="page">
+          <div class="filter-bar">
+            <div class="filter-group">
+              <label>记录类型：</label>
+              <select id="patrol-type-filter" onchange="loadPatrolRecords()">
+                <option value="">全部类型</option>
+                <option value="alarm">告警记录</option>
+                <option value="workorder">工单记录</option>
+                <option value="restore">恢复记录</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label>设备编号：</label>
+              <input type="text" id="patrol-device-filter" placeholder="输入设备编号" style="width: 150px;">
+            </div>
+            <div class="filter-group">
+              <button class="btn btn-primary" onclick="loadPatrolRecords()">
+                🔍 查询
+              </button>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <h3>巡检记录</h3>
+              <span class="subtitle" id="patrol-count">共 0 条记录</span>
+            </div>
+            <div class="panel-body">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>记录时间</th>
+                    <th>设备编号</th>
+                    <th>类型</th>
+                    <th>内容</th>
+                  </tr>
+                </thead>
+                <tbody id="patrol-table-body">
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div id="page-simulate" class="page">
+          <div class="dashboard-grid">
+            <div class="panel">
+              <div class="panel-header">
+                <h3>批量模拟离线告警</h3>
+                <span class="subtitle">校验工单自动分配逻辑</span>
+              </div>
+              <div class="panel-body">
+                <div class="simulate-form">
+                  <div class="form-group">
+                    <label>选择设备：</label>
+                    <div class="device-select-box">
+                      <div id="simulate-device-list" class="simulate-device-list">
+                      </div>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <button class="btn btn-secondary" onclick="selectAllDevices()">全选</button>
+                    <button class="btn btn-secondary" onclick="clearDeviceSelection()">清空</button>
+                    <button class="btn btn-danger" onclick="simulateOffline()">
+                      🚨 模拟离线告警
+                    </button>
+                    <button class="btn btn-success" onclick="simulateRestore()">
+                      ✅ 恢复设备
+                    </button>
+                  </div>
+                </div>
+                <div id="simulate-result" class="simulate-result" style="display: none;">
+                  <h4>模拟结果</h4>
+                  <div id="simulate-result-content"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-header">
+                <h3>超时升级测试</h3>
+                <span class="subtitle">校验工单超时自动升级逻辑</span>
+              </div>
+              <div class="panel-body">
+                <div class="simulate-form">
+                  <div class="form-group">
+                    <label>超时时间（分钟）：</label>
+                    <input type="number" id="escalation-timeout" value="1" min="1" style="width: 100px;">
+                  </div>
+                  <div class="form-group">
+                    <label>选择测试设备：</label>
+                    <select id="escalation-device" style="width: 200px;">
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <button class="btn btn-warning" onclick="startEscalationTest()">
+                      ⏱️ 启动超时升级测试
+                    </button>
+                  </div>
+                </div>
+                <div id="escalation-result" class="simulate-result" style="display: none;">
+                  <h4>测试状态</h4>
+                  <div id="escalation-result-content"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <h3>分配逻辑校验</h3>
+              <span class="subtitle">验证工单是否正确分配给对应区域的运维人员</span>
+            </div>
+            <div class="panel-body">
+              <button class="btn btn-primary" onclick="verifyAssignment()">
+                🔍 校验最近模拟工单的分配结果
+              </button>
+              <div id="verification-result" class="verification-result" style="display: none;">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div id="order-detail-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>工单详情</h3>
+        <button class="modal-close" onclick="closeOrderDetail()">×</button>
+      </div>
+      <div class="modal-body" id="order-detail-body">
+      </div>
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
