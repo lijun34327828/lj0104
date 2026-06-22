@@ -180,7 +180,7 @@ function assignWorkOrder(orderId, workerId) {
 }
 
 function escalateWorkOrder(orderId) {
-  const order = getWorkOrderById(id);
+  const order = getWorkOrderById(orderId);
   if (!order || order.escalationLevel >= store.supervisors.length) return null;
   
   order.escalated = true;

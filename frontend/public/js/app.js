@@ -371,6 +371,24 @@ async function simulateOffline() {
   }
 }
 
+async function simulateOcclusion() {
+  if (selectedDevices.size === 0) {
+    alert('请先选择要模拟的设备');
+    return;
+  }
+  
+  try {
+    const result = await API.simulateOcclusion([...selectedDevices]);
+    displaySimulateResult(result, '画面遮挡模拟结果');
+    
+    if (currentPage === 'dashboard') {
+      loadDashboard();
+    }
+  } catch (error) {
+    alert('模拟失败: ' + error.message);
+  }
+}
+
 async function simulateRestore() {
   if (selectedDevices.size === 0) {
     alert('请先选择要恢复的设备');
