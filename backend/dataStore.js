@@ -179,15 +179,15 @@ function assignWorkOrder(orderId, workerId) {
   return order;
 }
 
-function escalateWorkOrder(orderId) {
+function escalateWorkOrder(orderId, reason = '运维人员手动升级') {
   const order = getWorkOrderById(orderId);
   if (!order || order.escalationLevel >= store.supervisors.length) return null;
-  
+
   order.escalated = true;
   order.escalationLevel += 1;
-  
+
   const supervisor = store.supervisors.find(s => s.level === order.escalationLevel);
-  
+
   store.escalations.push({
     id: uuidv4(),
     orderId,
@@ -195,9 +195,9 @@ function escalateWorkOrder(orderId) {
     supervisorName: supervisor ? supervisor.name : '未知',
     level: order.escalationLevel,
     escalatedAt: new Date().toISOString(),
-    reason: '工单超时未处理'
+    reason
   });
-  
+
   return order;
 }
 

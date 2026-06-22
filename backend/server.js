@@ -128,9 +128,10 @@ app.put('/api/work-orders/:id/assign', (req, res) => {
 });
 
 app.post('/api/work-orders/:id/escalate', (req, res) => {
-  const order = dataStore.escalateWorkOrder(req.params.id);
+  const { reason } = req.body || {};
+  const order = dataStore.escalateWorkOrder(req.params.id, reason);
   if (!order) {
-    return res.status(400).json({ error: '无法升级工单' });
+    return res.status(400).json({ error: '无法升级工单，可能已达最高级别或工单不存在' });
   }
   res.json(order);
 });

@@ -87,9 +87,12 @@ const API = {
     });
   },
 
-  async escalateWorkOrder(orderId) {
+  async escalateWorkOrder(orderId, reason) {
+    const body = {};
+    if (reason) body.reason = reason;
     return this.request(`/work-orders/${orderId}/escalate`, {
-      method: 'POST'
+      method: 'POST',
+      body: Object.keys(body).length > 0 ? JSON.stringify(body) : undefined
     });
   },
 

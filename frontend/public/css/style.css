@@ -519,6 +519,18 @@ body {
   background: #718096;
 }
 
+.btn-escalate {
+  background: linear-gradient(135deg, #ed8936 0%, #e53e3e 100%);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(229, 62, 62, 0.3);
+}
+
+.btn-escalate:hover {
+  background: linear-gradient(135deg, #dd6b20 0%, #c53030 100%);
+  box-shadow: 0 4px 12px rgba(229, 62, 62, 0.4);
+  transform: translateY(-1px);
+}
+
 .data-table {
   width: 100%;
   border-collapse: collapse;

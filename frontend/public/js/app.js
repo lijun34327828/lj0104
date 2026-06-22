@@ -169,6 +169,7 @@ function renderRecentOrders(orders) {
       </div>
       <div class="order-item-status">
         <span class="status-tag ${order.status}">${getStatusText(order.status)}</span>
+        ${order.escalated ? `<br><span class="escalation-badge" style="margin-top: 4px; display: inline-block;">${order.escalationLevel}级升级</span>` : ''}
       </div>
     </div>
   `).join('');
@@ -492,11 +493,21 @@ async function startEscalationTest() {
 
 async function showOrderDetail(orderId) {
   try {
-    const order = await API.getWorkOrderById(orderId);
-    
+    const [order, supervisors, escalations] = await Promise.all([
+      API.getWorkOrderById(orderId),
+      API.getSupervisors(),
+      API.getEscalations()
+    ]);
+
+    const orderEscalations = escalations.filter(e => e.orderId === orderId);
+    const maxLevel = supervisors.length;
+    const isMaxLevel = order.escalationLevel >= maxLevel;
+    const nextSupervisor = supervisors.find(s => s.level === order.escalationLevel + 1);
+    const canShowEscalateBtn = (order.status === 'pending' || order.status === 'processing') && !order.closedAt;
+
     const modal = document.getElementById('order-detail-modal');
     const body = document.getElementById('order-detail-body');
-    
+
     body.innerHTML = `
       <div class="detail-row">
         <div class="detail-label">工单编号</div>
@@ -537,6 +548,29 @@ async function showOrderDetail(orderId) {
         <div class="detail-value">${order.assigneeName || '未分配'}</div>
       </div>
       <div class="detail-row">
+        <div class="detail-label">升级级别</div>
+        <div class="detail-value">
+          ${order.escalationLevel > 0 
+            ? `<strong style="color: #e53e3e;">${order.escalationLevel}级</strong> / ${maxLevel}级（最高）`
+            : `<span style="color: #a0aec0;">0级（未升级）</span> / ${maxLevel}级（最高）`
+          }
+        </div>
+      </div>
+      ${order.escalationLevel > 0 ? `
+      <div class="detail-row">
+        <div class="detail-label">当前接收主管</div>
+        <div class="detail-value">
+          ${(supervisors.find(s => s.level === order.escalationLevel)?.name) || '-'}
+        </div>
+      </div>` : ''}
+      ${nextSupervisor && canShowEscalateBtn && !isMaxLevel ? `
+      <div class="detail-row">
+        <div class="detail-label">升级后将通知</div>
+        <div class="detail-value" style="color: #d69e2e; font-weight: 500;">
+          ${nextSupervisor.name}（${order.escalationLevel + 1}级主管）
+        </div>
+      </div>` : ''}
+      <div class="detail-row">
         <div class="detail-label">创建时间</div>
         <div class="detail-value">${formatTime(order.createdAt)}</div>
       </div>
@@ -559,7 +593,24 @@ async function showOrderDetail(orderId) {
         <div class="detail-label">备注</div>
         <div class="detail-value">${order.remark}</div>
       </div>` : ''}
-      
+
+      ${orderEscalations.length > 0 ? `
+      <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e2e8f0;">
+        <div style="font-weight: 600; margin-bottom: 12px; color: #2d3748;">📢 升级记录</div>
+        ${orderEscalations.map(esc => `
+          <div style="padding: 10px 12px; background: #fffaf0; border: 1px solid #fbd38d; border-radius: 8px; margin-bottom: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+              <span style="font-weight: 600; color: #c05621;">${esc.level}级升级</span>
+              <span style="font-size: 12px; color: #a0aec0;">${formatTime(esc.escalatedAt)}</span>
+            </div>
+            <div style="font-size: 13px; color: #718096;">
+              通知主管：${esc.supervisorName}
+              ${esc.reason ? `<br>原因：${esc.reason}` : ''}
+            </div>
+          </div>
+        `).join('')}
+      </div>` : ''}
+
       <div class="detail-actions">
         ${order.status === 'pending' ? `
           <button class="btn btn-primary" onclick="processOrder('${order.id}')">开始处理</button>
@@ -567,13 +618,67 @@ async function showOrderDetail(orderId) {
         ${order.status === 'processing' ? `
           <button class="btn btn-success" onclick="closeOrder('${order.id}')">完成闭环</button>
         ` : ''}
+        ${canShowEscalateBtn ? `
+          ${isMaxLevel ? `
+            <button class="btn" style="background: #cbd5e0; color: #718096; cursor: not-allowed;" disabled title="已达到最高升级级别">
+              ⚠️ 已达最高级别
+            </button>
+          ` : `
+            <button class="btn btn-escalate" onclick="escalateOrder('${order.id}', ${maxLevel})">
+              ⬆️ 手动升级
+            </button>
+          `}
+        ` : ''}
         <button class="btn btn-secondary" onclick="closeOrderDetail()">关闭</button>
       </div>
     `;
-    
+
     modal.classList.add('show');
   } catch (error) {
     alert('获取工单详情失败: ' + error.message);
+  }
+}
+
+async function escalateOrder(orderId, maxLevel) {
+  try {
+    const order = await API.getWorkOrderById(orderId);
+    const nextLevel = order.escalationLevel + 1;
+
+    if (order.escalationLevel >= maxLevel) {
+      alert('该工单已达到最高升级级别，无法继续升级');
+      return;
+    }
+
+    const supervisors = await API.getSupervisors();
+    const nextSupervisor = supervisors.find(s => s.level === nextLevel);
+    const nextSupervisorName = nextSupervisor ? nextSupervisor.name : '下一级主管';
+
+    const reason = prompt(
+      `【确认手动升级】\n\n` +
+      `当前级别：${order.escalationLevel}级\n` +
+      `升级后级别：${nextLevel}级\n` +
+      `将通知：${nextSupervisorName}\n\n` +
+      `请输入升级原因（可选）：`,
+      '工单需要上级主管协助处理'
+    );
+
+    if (reason === null) return;
+
+    const confirmMsg = `确认将工单升级到 ${nextLevel} 级？\n\n升级后将立即通知 ${nextSupervisorName}，此操作不可撤销。`;
+    if (!confirm(confirmMsg)) return;
+
+    const updatedOrder = await API.escalateWorkOrder(orderId, reason || '运维人员手动升级');
+
+    alert(`✅ 工单升级成功！\n\n当前级别：${updatedOrder.escalationLevel}级\n已通知：${nextSupervisorName}`);
+
+    closeOrderDetail();
+    showOrderDetail(orderId);
+
+    if (currentPage === 'dashboard') loadDashboard();
+    if (currentPage === 'workorders') loadWorkOrders();
+  } catch (error) {
+    alert('升级失败: ' + error.message);
+    showOrderDetail(orderId);
   }
 }
 
